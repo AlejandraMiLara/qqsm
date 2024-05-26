@@ -62,7 +62,7 @@ int main(void)
 
     // Variables para la escena GAMEPLAY
     Texture2D gameplayTexture = LoadTexture("resources/1.png");
-    if (usernameTexture.id == 0)
+    if (gameplayTexture.id == 0)
     {
         printf("Error al cargar la imagen 1.png\n");
         return -1; // Salir del programa si no se pudo cargar la imagen
@@ -80,8 +80,16 @@ int main(void)
 
     SetTargetFPS(60); // Set desired framerate (frames-per-second)
 
-    Music music;              // Mover la declaración de music fuera del case TITLE
-    bool musicLoaded = false; // Bandera para controlar la carga de la música
+    InitAudioDevice(); // Initialize
+    Sound introSound = LoadSound("resources/intro.wav");
+    Sound startSound = LoadSound("resources/pregunta/start.wav");
+    Sound loopSound = LoadSound("resources/pregunta/loop.wav");
+
+
+    bool introSoundPlayed = false;
+    bool startSoundPlayed = false;
+    bool loopSoundPlayed = false;
+
 
     // Bucle principal del juego
     while (!WindowShouldClose())
@@ -94,6 +102,22 @@ int main(void)
             timer = 0.0f;
             dotCount = (dotCount + 1) % (maxDots + 1);
         }
+
+        // Reproducir el sonido de introducción si no se ha reproducido antes
+        if (currentScreen == TITLE && !introSoundPlayed)
+        {
+            PlaySound(introSound);
+            introSoundPlayed = true; // Marcar como reproducido
+        }
+
+        // Reproducir el sonido de la pregunta si no se ha reproducido antes
+        if (currentScreen == GAMEPLAY && !startSoundPlayed)
+        {
+            StopSound(introSound);
+            PlaySound(startSound);
+            startSoundPlayed = true;
+            PlaySound(loopSound);
+        }   
 
         switch (currentScreen)
         {
@@ -110,15 +134,6 @@ int main(void)
         break;
         case TITLE:
         {
-            if (!musicLoaded)
-            {
-                InitAudioDevice(); // Initialize audio device
-                music = LoadMusicStream("resources/intro.mp3");
-                PlayMusicStream(music);
-                musicLoaded = true;
-            }
-
-            UpdateMusicStream(music); // Update music buffer with new stream data
 
             // Detectar clic en el área del botón
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
@@ -130,12 +145,8 @@ int main(void)
                     currentScreen = USERNAME; // Cambiar a la pantalla USERNAME
                 }
             }
-
-            if (IsKeyPressed(KEY_ENTER))
-            {
-                currentScreen = USERNAME; // Cambiar a la pantalla USERNAME
-            }
         }
+
         break;
         case USERNAME:
         {
@@ -197,28 +208,19 @@ int main(void)
         }
         break;
         case GAMEPLAY:
-{
-    if (!musicLoaded)
-    {
-        InitAudioDevice(); // Inicializar el dispositivo de audio
-        music = LoadMusicStream("resources/pregunta.mp3");
-        PlayMusicStream(music);
-        musicLoaded = true;
-    }
+        {
 
-    UpdateMusicStream(music);
+            
+        
+            // Carga de la textura de la pantalla de juego
+            if (gameplayTexture.id == 0)
+            {
+                printf("Error al cargar la imagen 1.png\n");
+                return -1; // Salir del programa si no se pudo cargar la imagen
+            }
 
-    // Carga de la textura de la pantalla de juego
-    if (gameplayTexture.id == 0)
-    {
-        printf("Error al cargar la imagen 1.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
-
-    DrawTexture(gameplayTexture, (screenWidth - tutorialTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
-}
-break;
-
+        }
+        break;
 
         case ENDING:
         {
@@ -293,7 +295,7 @@ break;
         break;
         case GAMEPLAY:
         {
-            DrawTexture(gameplayTexture, (screenWidth - tutorialTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
+            DrawTexture(gameplayTexture, (screenWidth - gameplayTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
         }
         break;
         case ENDING:
@@ -309,12 +311,6 @@ break;
         }
 
         EndDrawing();
-    }
-
-    if (musicLoaded)
-    {
-        UnloadMusicStream(music); // Descargar la música
-        CloseAudioDevice();       // Cerrar el dispositivo de audio
     }
 
     UnloadTexture(loadingTexture);
