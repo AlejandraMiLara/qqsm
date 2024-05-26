@@ -7,10 +7,12 @@
 typedef enum GameScreen
 {
     LOGO = 0,
-    TITLE,
+    MENU,
     USERNAME,
+    TUTORIAL,
     GAMEPLAY,
-    ENDING
+    POINTS,
+    CREDITS
 } GameScreen;
 
 // Función para verificar si un carácter es válido (letra o número)
@@ -44,11 +46,25 @@ int main(void)
     int dotCount = 0;
     const int maxDots = 3;
 
-    // Variables para la escena TITLE
+    // Variables para la escena MENU
+    Rectangle tutorialButtonBounds = {screenWidth / 2.0f - 70, screenHeight / 2.0f + 70, 205, 60};
+
+    Rectangle pointsButtonBounds = {screenWidth / 2.0f - 190, screenHeight / 2.0f + 140, 205, 40};
+    Rectangle creditosButtonBounds = {screenWidth / 2.0f + 20, screenHeight / 2.0f + 140, 205, 40};
+
+    // Variables para la escena TUTORIAL
     Texture2D tutorialTexture = LoadTexture("resources/tutorial.png");
     if (tutorialTexture.id == 0)
     {
         printf("Error al cargar la imagen tutorial.png\n");
+        return -1; // Salir del programa si no se pudo cargar la imagen
+    }
+
+    // Variables para la escena MENU
+    Texture2D menuTexture = LoadTexture("resources/menu.png");
+    if (menuTexture.id == 0)
+    {
+        printf("Error al cargar la imagen menu.png\n");
         return -1; // Salir del programa si no se pudo cargar la imagen
     }
 
@@ -68,7 +84,38 @@ int main(void)
         return -1; // Salir del programa si no se pudo cargar la imagen
     }
 
-    // Definir el área del botón en la imagen TITLE
+    // Variables para la escena CREDITS
+
+    Texture2D creditsTexture = LoadTexture("resources/creditos.png");
+    if (creditsTexture.id == 0)
+    {
+        printf("Error al cargar la imagen 1.png\n");
+        return -1; // Salir del programa si no se pudo cargar la imagen
+    }
+
+    const char *creditsText[] = {
+        "WHO WANTS TO BE MILLIONAIRE",
+        "QUIEN QUIERE SER MILLONARIO",
+        "son MARCAS REGISTRADAS creadas por David Briggs,",
+        "Steven Knight y Mike Whitehill en 1999,",
+        "el presente juego es una demo BASADA",
+        "en dicho PRODUCTO pero no exactamente idéntica.",
+        "",
+        "Juego desarrollado por:",
+        "Alejandra Miranda y Yaeli Kikunaga,",
+        "estudiantes en la Facultad de Ingeniería,",
+        "Arquitectura y Diseño en la",
+        "Universidad Autónoma de Baja California,",
+        "a cargo el Mtro. Pedro Nuñez Yépiz.",
+        "",
+        "Haz CLICK para REGRESAR al MENU."
+    };
+    int creditsLines = sizeof(creditsText) / sizeof(creditsText[0]);
+    int creditsPositionY = screenHeight;
+
+
+
+    // Definir el área del botón en la imagen TUTORIAL
     Rectangle buttonBounds = {650, 300, 100, 80}; // (x, y, width, height)
 
     // Definir el área del botón en la pantalla USERNAME
@@ -85,11 +132,9 @@ int main(void)
     Sound startSound = LoadSound("resources/pregunta/start.wav");
     Sound loopSound = LoadSound("resources/pregunta/loop.wav");
 
-
     bool introSoundPlayed = false;
     bool startSoundPlayed = false;
     bool loopSoundPlayed = false;
-
 
     // Bucle principal del juego
     while (!WindowShouldClose())
@@ -104,7 +149,7 @@ int main(void)
         }
 
         // Reproducir el sonido de introducción si no se ha reproducido antes
-        if (currentScreen == TITLE && !introSoundPlayed)
+        if (currentScreen == MENU && !introSoundPlayed)
         {
             PlaySound(introSound);
             introSoundPlayed = true; // Marcar como reproducido
@@ -117,7 +162,7 @@ int main(void)
             PlaySound(startSound);
             startSoundPlayed = true;
             PlaySound(loopSound);
-        }   
+        }
 
         switch (currentScreen)
         {
@@ -128,25 +173,30 @@ int main(void)
             if (framesCounter > 260)
             {
                 framesCounter = 0;
-                currentScreen = TITLE;
+                currentScreen = MENU;
             }
         }
         break;
-        case TITLE:
+        case MENU:
         {
-
-            // Detectar clic en el área del botón
+            // Detectar clic en los botones
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 Vector2 mousePoint = GetMousePosition();
-                if (CheckCollisionPointRec(mousePoint, buttonBounds))
+                if (CheckCollisionPointRec(mousePoint, tutorialButtonBounds))
                 {
-                    printf("Botón presionado\n");
-                    currentScreen = USERNAME; // Cambiar a la pantalla USERNAME
+                    currentScreen = TUTORIAL; // Cambiar a la pantalla TUTORIAL
+                }
+                else if (CheckCollisionPointRec(mousePoint, pointsButtonBounds))
+                {
+                    currentScreen = POINTS; // Cambiar a la pantalla POINTS
+                }
+                else if (CheckCollisionPointRec(mousePoint, creditosButtonBounds))
+                {
+                    currentScreen = CREDITS; // Cambiar a la pantalla CREDITS
                 }
             }
         }
-
         break;
         case USERNAME:
         {
@@ -207,32 +257,67 @@ int main(void)
             }
         }
         break;
-        case GAMEPLAY:
+        case TUTORIAL:
         {
 
-            
-        
+            // Detectar clic en el área del botón
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                Vector2 mousePoint = GetMousePosition();
+                if (CheckCollisionPointRec(mousePoint, buttonBounds))
+                {
+                    printf("Botón presionado\n");
+                    currentScreen = USERNAME; // Cambiar a la pantalla USERNAME
+                }
+            }
+        }
+        break;
+        case GAMEPLAY:
+        {
             // Carga de la textura de la pantalla de juego
             if (gameplayTexture.id == 0)
             {
                 printf("Error al cargar la imagen 1.png\n");
                 return -1; // Salir del programa si no se pudo cargar la imagen
             }
-
         }
         break;
-
-        case ENDING:
+        case POINTS:
         {
-            // TODO: Update ENDING screen variables here!
-
-            // Press enter to return to TITLE screen
-            if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
+            // Detectar clic para volver al menú
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                currentScreen = TITLE;
+                currentScreen = MENU; // Volver al menú
             }
         }
         break;
+
+        case CREDITS:
+        {
+            ClearBackground(BLACK);
+
+            for (int i = 0; i < creditsLines; i++)
+            {
+                DrawText(creditsText[i], (screenWidth - MeasureText(creditsText[i], 20)) / 2, creditsPositionY + i * 30, 20, RAYWHITE);
+            }
+
+            creditsPositionY -= 0.5f; // Reducir la velocidad de desplazamiento
+
+            // Reiniciar la posición si los créditos se desplazan completamente
+            if (creditsPositionY + creditsLines * 30 < 0)
+            {
+                creditsPositionY = screenHeight;
+            }
+
+            // Detectar clic para volver al menú
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                currentScreen = MENU; // Volver al menú
+            }
+        }
+        break;
+
+
         default:
             break;
         }
@@ -249,11 +334,20 @@ int main(void)
             DrawText(TextFormat("%s%s", loadingText, (dotCount == 0 ? "" : (dotCount == 1 ? "." : (dotCount == 2 ? ".." : "...")))), textPosition.x, textPosition.y, 20, PURPLE);
         }
         break;
-
-        case TITLE:
+        case MENU:
         {
-            // Dibujar la imagen del tutorial
-            DrawTexture(tutorialTexture, (screenWidth - tutorialTexture.width) / 2, (screenHeight - tutorialTexture.height) / 2, WHITE);
+            ClearBackground(RAYWHITE);
+
+            DrawTexture(menuTexture, (screenWidth - menuTexture.width) / 2, (screenHeight - menuTexture.height) / 2, WHITE);
+            
+            DrawRectangleRec(tutorialButtonBounds, GRAY);
+            DrawText("JUGAR", tutorialButtonBounds.x + 50, tutorialButtonBounds.y + 18, 30, BLACK);
+            
+            DrawRectangleRec(pointsButtonBounds, GRAY);
+            DrawText("Ver Puntuaciones", pointsButtonBounds.x + 10, pointsButtonBounds.y + 10, 20, BLACK);
+
+            DrawRectangleRec(creditosButtonBounds, GRAY);
+            DrawText("Creditos", creditosButtonBounds.x + 50, creditosButtonBounds.y + 10, 20, BLACK);
         }
         break;
         case USERNAME:
@@ -293,19 +387,36 @@ int main(void)
             }
         }
         break;
+        case TUTORIAL:
+        {
+            // Dibujar la imagen del tutorial
+            DrawTexture(tutorialTexture, (screenWidth - tutorialTexture.width) / 2, (screenHeight - tutorialTexture.height) / 2, WHITE);
+        }
+        break;
         case GAMEPLAY:
         {
             DrawTexture(gameplayTexture, (screenWidth - gameplayTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
         }
         break;
-        case ENDING:
+        case POINTS:
         {
-            // TODO: Draw ENDING screen here!
-            DrawRectangle(0, 0, screenWidth, screenHeight, BLUE);
-            DrawText("ENDING SCREEN", 20, 20, 40, DARKBLUE);
-            DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 120, 220, 20, DARKBLUE);
+            ClearBackground(RAYWHITE);
+            DrawText("Puntos", (screenWidth - MeasureText("Puntos", 40)) / 2, screenHeight / 2 - 20, 40, BLACK);
         }
         break;
+
+        case CREDITS:
+        {
+            ClearBackground(BLACK);
+            // Dibujar la imagen del fondo de la pantalla 
+            DrawTexture(creditsTexture, (screenWidth - creditsTexture.width) / 2, (screenHeight - creditsTexture.height) / 2, WHITE);
+
+            for (int i = 0; i < creditsLines; i++)
+            {
+                DrawText(creditsText[i], (screenWidth - MeasureText(creditsText[i], 20)) / 2, creditsPositionY + i * 30, 20, RAYWHITE);
+            }
+        }
+
         default:
             break;
         }
@@ -316,6 +427,11 @@ int main(void)
     UnloadTexture(loadingTexture);
     UnloadTexture(tutorialTexture); // Descargar la textura del tutorial
     UnloadTexture(usernameTexture); // Descargar la textura del username
+    UnloadTexture(gameplayTexture); // Descargar la textura del gameplay
+    UnloadSound(introSound);
+    UnloadSound(startSound);
+    UnloadSound(loopSound);
+    CloseAudioDevice();
     CloseWindow();
 
     return 0;
