@@ -33,9 +33,17 @@ bool IsValidChar(int key)
             (key >= 97 && key <= 122)); // Letras minúsculas a-z
 }
 
+void createFile()
+{
+    FILE *file;
+    file = fopen("reg.txt", "w");
+    fclose(file);
+}
+
 int main(void)
 {
     srand(time(NULL));
+    createFile();
     
     // Inicializar la ventana de Raylib
     const int screenWidth = 800;
