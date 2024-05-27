@@ -1,6 +1,8 @@
 #include "raylib.h"
 #include <stdio.h>  // Incluir la biblioteca para printf
 #include <string.h> // Incluir la biblioteca para strlen
+#include <time.h>
+#include <stdlib.h>
 
 #define MAX_INPUT_CHARS 9
 
@@ -15,6 +17,14 @@ typedef enum GameScreen
     CREDITS
 } GameScreen;
 
+typedef struct
+{
+    int id; //aleat 0 a 9999
+    char usuario[MAX_INPUT_CHARS+1];
+    int ganancias;
+}Usuario;
+
+
 // Función para verificar si un carácter es válido (letra o número)
 bool IsValidChar(int key)
 {
@@ -25,6 +35,8 @@ bool IsValidChar(int key)
 
 int main(void)
 {
+    srand(time(NULL));
+    
     // Inicializar la ventana de Raylib
     const int screenWidth = 800;
     const int screenHeight = 450;
@@ -47,10 +59,10 @@ int main(void)
     const int maxDots = 3;
 
     // Variables para la escena MENU
-    Rectangle tutorialButtonBounds = {screenWidth / 2.0f - 70, screenHeight / 2.0f + 70, 205, 60};
+    Rectangle tutorialButtonBounds = {screenWidth / 2.0f - 60, screenHeight / 2.0f + 55, 144, 50};
 
-    Rectangle pointsButtonBounds = {screenWidth / 2.0f - 190, screenHeight / 2.0f + 140, 205, 40};
-    Rectangle creditosButtonBounds = {screenWidth / 2.0f + 20, screenHeight / 2.0f + 140, 205, 40};
+    Rectangle pointsButtonBounds = {screenWidth / 2.0f - 105, screenHeight / 2.0f + 110, 229, 46};
+    Rectangle creditosButtonBounds = {screenWidth / 2.0f -60, screenHeight / 2.0f + 162, 151, 46};
 
     // Variables para la escena TUTORIAL
     Texture2D tutorialTexture = LoadTexture("resources/tutorial.png");
@@ -68,6 +80,20 @@ int main(void)
         return -1; // Salir del programa si no se pudo cargar la imagen
     }
 
+    Texture2D tutorialButtonNormal = LoadTexture("resources/botones/jugar_normal.png");
+    Texture2D tutorialButtonHover = LoadTexture("resources/botones/jugar_hover.png");
+
+    Texture2D pointsButtonNormal = LoadTexture("resources/botones/puntos_normal.png");
+    Texture2D pointsButtonHover = LoadTexture("resources/botones/puntos_hover.png");
+
+    Texture2D creditsButtonNormal = LoadTexture("resources/botones/credits_normal.png");
+    Texture2D creditsButtonHover = LoadTexture("resources/botones/credits_hover.png");
+
+    bool creditsButtonHovered = false;
+    bool pointsButtonHovered = false;
+    bool tutorialButtonHovered = false;
+
+
     // Variables para la escena USERNAME
     Texture2D usernameTexture = LoadTexture("resources/escribetunombre.png");
     if (usernameTexture.id == 0)
@@ -83,6 +109,14 @@ int main(void)
         printf("Error al cargar la imagen 1.png\n");
         return -1; // Salir del programa si no se pudo cargar la imagen
     }
+
+    Texture2D comodinButtonNormal = LoadTexture("resources/botones/comodin_normal.png");
+    Texture2D comodinButtonHover = LoadTexture("resources/botones/comodin_hover.png");
+    Texture2D comodinButtonClicked = LoadTexture("resources/botones/comodin_click.png");
+    bool comodin_clicked = false;
+    bool comodinButtonHovered = false;
+
+    Rectangle comodinButtonBounds = {screenWidth / 2.0f - 80, screenHeight / 2.0f - 100, 144, 50};
 
     // Variables para la escena CREDITS
 
@@ -179,6 +213,35 @@ int main(void)
         break;
         case MENU:
         {
+
+            // Detectar el estado del mouse en los botones
+            if (CheckCollisionPointRec(GetMousePosition(), creditosButtonBounds))
+            {
+                creditsButtonHovered = true;
+            }
+            else
+            {
+                creditsButtonHovered = false;
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), pointsButtonBounds))
+            {
+                pointsButtonHovered = true;
+            }
+            else
+            {
+                pointsButtonHovered = false;
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), tutorialButtonBounds))
+            {
+                tutorialButtonHovered = true;
+            }
+            else
+            {
+                tutorialButtonHovered = false;
+            }
+
             // Detectar clic en los botones
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
@@ -280,6 +343,25 @@ int main(void)
                 printf("Error al cargar la imagen 1.png\n");
                 return -1; // Salir del programa si no se pudo cargar la imagen
             }
+
+            // Detectar el estado del mouse en los botones
+            if (CheckCollisionPointRec(GetMousePosition(), comodinButtonBounds))
+            {
+                comodinButtonHovered = true;
+            }
+            else
+            {
+                comodinButtonHovered = false;
+            }
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !comodin_clicked)
+            {
+                Vector2 mousePoint = GetMousePosition();
+                if (CheckCollisionPointRec(mousePoint, comodinButtonBounds))
+                {
+                    comodin_clicked = true;
+                }
+            }
         }
         break;
         case POINTS:
@@ -339,15 +421,34 @@ int main(void)
             ClearBackground(RAYWHITE);
 
             DrawTexture(menuTexture, (screenWidth - menuTexture.width) / 2, (screenHeight - menuTexture.height) / 2, WHITE);
-            
-            DrawRectangleRec(tutorialButtonBounds, GRAY);
-            DrawText("JUGAR", tutorialButtonBounds.x + 50, tutorialButtonBounds.y + 18, 30, BLACK);
-            
-            DrawRectangleRec(pointsButtonBounds, GRAY);
-            DrawText("Ver Puntuaciones", pointsButtonBounds.x + 10, pointsButtonBounds.y + 10, 20, BLACK);
 
-            DrawRectangleRec(creditosButtonBounds, GRAY);
-            DrawText("Creditos", creditosButtonBounds.x + 50, creditosButtonBounds.y + 10, 20, BLACK);
+            // Dibujar la textura de los botones según el estado del mouse
+            if (tutorialButtonHovered)
+            {
+                DrawTexture(tutorialButtonHover, tutorialButtonBounds.x, tutorialButtonBounds.y, WHITE);
+            }
+            else
+            {
+                DrawTexture(tutorialButtonNormal, tutorialButtonBounds.x, tutorialButtonBounds.y, WHITE);
+            }
+
+            if (pointsButtonHovered)
+            {
+                DrawTexture(pointsButtonHover, pointsButtonBounds.x, pointsButtonBounds.y, WHITE);
+            }
+            else
+            {
+                DrawTexture(pointsButtonNormal, pointsButtonBounds.x, pointsButtonBounds.y, WHITE);
+            }
+
+            if (creditsButtonHovered)
+            {
+                DrawTexture(creditsButtonHover, creditosButtonBounds.x, creditosButtonBounds.y, WHITE);
+            }
+            else
+            {
+                DrawTexture(creditsButtonNormal, creditosButtonBounds.x, creditosButtonBounds.y, WHITE);
+            }
         }
         break;
         case USERNAME:
@@ -396,6 +497,26 @@ int main(void)
         case GAMEPLAY:
         {
             DrawTexture(gameplayTexture, (screenWidth - gameplayTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
+        
+            // Dibujar la textura de los botones según el estado del mouse
+
+            DrawText("Comodines Disponibles:", (screenWidth - MeasureText("Comodines Disponibles:", 18)) / 2, screenHeight / 2 - 120, 18, GRAY);
+            if(!comodin_clicked)
+            {
+                if (comodinButtonHovered)
+                {
+                    DrawTexture(comodinButtonHover, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+                    DrawText("Elimina 2 posibles respuestas", (screenWidth - MeasureText("Elimina 2 posibles respuestas", 18)) / 2 + 10, screenHeight / 2 - 30, 18, GRAY);
+                }
+                else
+                {
+                    DrawTexture(comodinButtonNormal, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+                }
+            }
+            else
+            {
+                DrawTexture(comodinButtonClicked, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+            }
         }
         break;
         case POINTS:
