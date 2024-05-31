@@ -5,6 +5,25 @@
 #include <stdlib.h>
 
 #define MAX_INPUT_CHARS 9
+#define MAX_PREGUNTA_LENGTH 100
+#define MAX_OPCIONES 4
+#define MAX_OPCION_LENGTH 50
+
+typedef struct
+{
+    int id; 
+    char usuario[MAX_INPUT_CHARS+1];
+    int ganancias;
+}Usuario;
+
+typedef struct {
+    char pregunta[100];
+    char opcionA[50];
+    char opcionB[50];
+    char opcionC[50];
+    char opcionD[50];
+    char respuestaCorrecta;
+} Pregunta;
 
 typedef enum GameScreen
 {
@@ -14,15 +33,10 @@ typedef enum GameScreen
     TUTORIAL,
     GAMEPLAY,
     POINTS,
+    ENDING,
     CREDITS
 } GameScreen;
 
-typedef struct
-{
-    int id; //aleat 0 a 9999
-    char usuario[MAX_INPUT_CHARS+1];
-    int ganancias;
-}Usuario;
 
 
 // Función para verificar si un carácter es válido (letra o número)
@@ -30,7 +44,8 @@ bool IsValidChar(int key)
 {
     return ((key >= 48 && key <= 57) || // Números 0-9
             (key >= 65 && key <= 90) || // Letras mayúsculas A-Z
-            (key >= 97 && key <= 122)); // Letras minúsculas a-z
+            (key >= 97 && key <= 122)|| // Letras minúsculas a-z
+            (key == 8) ); 
 }
 
 void createFile()
@@ -50,13 +65,28 @@ int main(void)
     const int screenHeight = 450;
     InitWindow(screenWidth, screenHeight, "QUIEN QUIERE SER MILLONARIO: JUEGO");
 
-    char name[MAX_INPUT_CHARS + 1] = "\0"; // NOTE: One extra space required for null terminator char '\0'
-    int letterCount = 0;
+    GameScreen currentScreen = LOGO;
 
-    Rectangle textBox = {screenWidth / 2.0f - 200, 284, 225, 50};
-    bool mouseOnText = false;
+    int framesCounter = 0; 
 
-    // Variables para la primera escena
+    SetTargetFPS(60); 
+
+    InitAudioDevice(); // Initialize
+    Sound introSound = LoadSound("resources/intro.wav");
+    Sound startSound = LoadSound("resources/pregunta/start.wav");
+    Sound loopSound = LoadSound("resources/pregunta/loop.wav");
+
+    Sound correctaSound = LoadSound("resources/pregunta/correcta.wav");
+    Sound incorrectaSound = LoadSound("resources/pregunta/incorrecta.wav");
+
+    bool introSoundPlayed = false;
+    bool startSoundPlayed = false;
+    bool loopSoundPlayed = false;
+
+
+/*****************************************************************************/
+
+    //VARIABLES LOGO
     Texture2D loadingTexture = LoadTexture("resources/cargando.png");
     const char *loadingText = "Cargando";
     int textSize = MeasureText(loadingText, 20);
@@ -66,75 +96,116 @@ int main(void)
     int dotCount = 0;
     const int maxDots = 3;
 
-    // Variables para la escena MENU
-    Rectangle tutorialButtonBounds = {screenWidth / 2.0f - 60, screenHeight / 2.0f + 55, 144, 50};
 
+    //VARIABLES MENU
+    Rectangle tutorialButtonBounds = {screenWidth / 2.0f - 60, screenHeight / 2.0f + 55, 144, 50};
     Rectangle pointsButtonBounds = {screenWidth / 2.0f - 105, screenHeight / 2.0f + 110, 229, 46};
     Rectangle creditosButtonBounds = {screenWidth / 2.0f -60, screenHeight / 2.0f + 162, 151, 46};
-
-    // Variables para la escena TUTORIAL
-    Texture2D tutorialTexture = LoadTexture("resources/tutorial.png");
-    if (tutorialTexture.id == 0)
-    {
-        printf("Error al cargar la imagen tutorial.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
-
-    // Variables para la escena MENU
     Texture2D menuTexture = LoadTexture("resources/menu.png");
-    if (menuTexture.id == 0)
-    {
-        printf("Error al cargar la imagen menu.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
-
     Texture2D tutorialButtonNormal = LoadTexture("resources/botones/jugar_normal.png");
     Texture2D tutorialButtonHover = LoadTexture("resources/botones/jugar_hover.png");
-
     Texture2D pointsButtonNormal = LoadTexture("resources/botones/puntos_normal.png");
     Texture2D pointsButtonHover = LoadTexture("resources/botones/puntos_hover.png");
-
     Texture2D creditsButtonNormal = LoadTexture("resources/botones/credits_normal.png");
     Texture2D creditsButtonHover = LoadTexture("resources/botones/credits_hover.png");
-
     bool creditsButtonHovered = false;
     bool pointsButtonHovered = false;
     bool tutorialButtonHovered = false;
 
 
-    // Variables para la escena USERNAME
+    //VARIABLES USERNAME
+    char name[MAX_INPUT_CHARS + 1] = "\0";
+    int letterCount = 0;
+    Rectangle textBox = {screenWidth / 2.0f - 200, 284, 225, 50};
+    bool mouseOnText = false; 
     Texture2D usernameTexture = LoadTexture("resources/escribetunombre.png");
-    if (usernameTexture.id == 0)
-    {
-        printf("Error al cargar la imagen escribetunombre.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
+    Rectangle proceedButtonBounds = {screenWidth / 2.0f - 50 + 180, 270, 110, 80}; // (x, y, width, height)
 
-    // Variables para la escena GAMEPLAY
-    Texture2D gameplayTexture = LoadTexture("resources/1.png");
-    if (gameplayTexture.id == 0)
-    {
-        printf("Error al cargar la imagen 1.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
 
+    //VARIABLES TUTORIAL
+    Texture2D tutorialTexture = LoadTexture("resources/tutorial.png");
+    Rectangle buttonBounds = {650, 300, 100, 80};
+
+
+    //VARIABLES GAMEPLAY
+    Texture2D gameplayTexture1 = LoadTexture("resources/preguntas/1.png");
+    Texture2D gameplayTexture2 = LoadTexture("resources/preguntas/2.png");
+    Texture2D gameplayTexture3 = LoadTexture("resources/preguntas/3.png");
+    Texture2D gameplayTexture4 = LoadTexture("resources/preguntas/4.png");
+    Texture2D gameplayTexture5 = LoadTexture("resources/preguntas/5.png");
+    Texture2D gameplayTexture6 = LoadTexture("resources/preguntas/6.png");
+    Texture2D gameplayTexture7 = LoadTexture("resources/preguntas/7.png");
+    Texture2D gameplayTexture8 = LoadTexture("resources/preguntas/8.png");
+    Texture2D gameplayTexture9 = LoadTexture("resources/preguntas/9.png");
+    Texture2D gameplayTexture10 = LoadTexture("resources/preguntas/10.png");
+    Texture2D gameplayTexture11 = LoadTexture("resources/preguntas/11.png");
+    Texture2D gameplayTexture12 = LoadTexture("resources/preguntas/12.png");
+    Texture2D gameplayTexture13 = LoadTexture("resources/preguntas/13.png");
+    Texture2D gameplayTexture14 = LoadTexture("resources/preguntas/14.png");
+    Texture2D gameplayTexture15 = LoadTexture("resources/preguntas/15.png");
+    Texture2D gameplayTexture16 = LoadTexture("resources/preguntas/16.png");
     Texture2D comodinButtonNormal = LoadTexture("resources/botones/comodin_normal.png");
     Texture2D comodinButtonHover = LoadTexture("resources/botones/comodin_hover.png");
     Texture2D comodinButtonClicked = LoadTexture("resources/botones/comodin_click.png");
+    Texture2D pregunta_hover = LoadTexture("resources/hover_pregunta.png");
+    Texture2D correcta = LoadTexture("resources/bien.png");
+    Texture2D incorrecta = LoadTexture("resources/mal.png");
+
+    Rectangle opcAbuttonBounds = {40, 320, 227, 46};
+    Rectangle opcBbuttonBounds = {307, 320, 227, 46};
+    Rectangle opcCbuttonBounds = {40, 383, 227, 46};
+    Rectangle opcDbuttonBounds = {307, 383, 227, 46};
+
+    int pregunta_actual = 1;
+    int victoria = 0;
+    int derrota = 0;
+    char opc_correcta_actual;
+    char opc_correcta_usuario;
+    int respondido = 0;
+    int respuestaCounter = 0;
+
     bool comodin_clicked = false;
     bool comodinButtonHovered = false;
+    bool opcAButtonHovered = false;
+    bool opcBButtonHovered = false;
+    bool opcCButtonHovered = false;
+    bool opcDButtonHovered = false;
+
+    bool show_pic_bien = false;
+    bool show_pic_mal = false;
 
     Rectangle comodinButtonBounds = {screenWidth / 2.0f - 80, screenHeight / 2.0f - 100, 144, 50};
 
-    // Variables para la escena CREDITS
+    Pregunta preguntas[16] = {
+        {"¿Cuál es la capital de Francia?", "A) Berlín", "B) Madrid", "C) París", "D) Roma", 'C'},
+        {"¿Cuál es el océano más grande del mundo?", "A) Atlántico", "B) Índico", "C) Ártico", "D) Pacífico", 'D'},
+        {"¿Quién pintó la Mona Lisa?", "A) Vincent van Gogh", "B) Pablo Picasso", "C) Leonardo da Vinci", "D) Rembrandt", 'C'},
+        {"¿Cuál es el metal más ligero?", "A) Oro", "B) Plomo", "C) Litio", "D) Mercurio", 'C'},
+        {"¿Cuál es el planeta más cercano al Sol?", "A) Venus", "B) Tierra", "C) Marte", "D) Mercurio", 'D'},
+        {"¿Cuál es el país más grande del mundo por área?", "A) Canadá", "B) China", "C) Rusia", "D) Estados Unidos", 'C'},
+        {"¿Cuál es el río más largo del mundo?", "A) Amazonas", "B) Nilo", "C) Yangtsé", "D) Misisipi", 'B'},
+        {"¿Cuál es el órgano más grande del cuerpo humano?", "A) Hígado", "B) Cerebro", "C) Piel", "D) Corazón", 'C'},
+        {"¿Cuál es la moneda oficial de Japón?", "A) Yen", "B) Won", "C) Yuan", "D) Dólar", 'A'},
+        {"¿Cuál es el idioma más hablado en el mundo?", "A) Inglés", "B) Mandarín", "C) Español", "D) Hindi", 'B'},
+        {"¿Cuál es la ciudad más poblada del mundo?", "A) Tokio", "B) Nueva York", "C) São Paulo", "D) Mumbai", 'A'},
+        {"¿En qué país se encuentra la Torre Eiffel?", "A) España", "B) Italia", "C) Francia", "D) Alemania", 'C'},
+        {"¿Cuál es el desierto más grande del mundo?", "A) Sahara", "B) Gobi", "C) Kalahari", "D) Antártida", 'D'},
+        {"¿Cuál es la capital de Australia?", "A) Sídney", "B) Melbourne", "C) Canberra", "D) Brisbane", 'C'},
+        {"¿En qué año comenzó la Primera Guerra Mundial?", "A) 1905", "B) 1914", "C) 1921", "D) 1939", 'B'},
+        {"¿Cuál es la capital de Finlandia?", "A) Oslo", "B) Estocolmo", "C) Helsinki", "D) Copenhague", 'C'}
+    };
 
+
+    //VARIABLES POINTS
+
+
+
+    //VARIABLES ENDING
+
+
+
+    //VARIABLES CREDITS
     Texture2D creditsTexture = LoadTexture("resources/creditos.png");
-    if (creditsTexture.id == 0)
-    {
-        printf("Error al cargar la imagen 1.png\n");
-        return -1; // Salir del programa si no se pudo cargar la imagen
-    }
-
     const char *creditsText[] = {
         "WHO WANTS TO BE MILLIONAIRE",
         "QUIEN QUIERE SER MILLONARIO",
@@ -157,26 +228,9 @@ int main(void)
 
 
 
-    // Definir el área del botón en la imagen TUTORIAL
-    Rectangle buttonBounds = {650, 300, 100, 80}; // (x, y, width, height)
+/*****************************************************************************/
 
-    // Definir el área del botón en la pantalla USERNAME
-    Rectangle proceedButtonBounds = {screenWidth / 2.0f - 50 + 180, 270, 110, 80}; // (x, y, width, height)
 
-    GameScreen currentScreen = LOGO;
-
-    int framesCounter = 0; // Useful to count frames
-
-    SetTargetFPS(60); // Set desired framerate (frames-per-second)
-
-    InitAudioDevice(); // Initialize
-    Sound introSound = LoadSound("resources/intro.wav");
-    Sound startSound = LoadSound("resources/pregunta/start.wav");
-    Sound loopSound = LoadSound("resources/pregunta/loop.wav");
-
-    bool introSoundPlayed = false;
-    bool startSoundPlayed = false;
-    bool loopSoundPlayed = false;
 
     // Bucle principal del juego
     while (!WindowShouldClose())
@@ -294,7 +348,7 @@ int main(void)
                     key = GetCharPressed(); // Check next character in the queue
                 }
 
-                if (IsKeyPressed(KEY_BACKSPACE))
+                if (IsKeyPressed(KEY_BACKSPACE)) 
                 {
                     letterCount--;
                     if (letterCount < 0)
@@ -322,7 +376,6 @@ int main(void)
                 Vector2 mousePoint = GetMousePosition();
                 if (CheckCollisionPointRec(mousePoint, proceedButtonBounds))
                 {
-                    printf("Nombre ingresado: %s\n", name);
                     currentScreen = GAMEPLAY; // Cambiar a la pantalla GAMEPLAY
                 }
             }
@@ -337,22 +390,114 @@ int main(void)
                 Vector2 mousePoint = GetMousePosition();
                 if (CheckCollisionPointRec(mousePoint, buttonBounds))
                 {
-                    printf("Botón presionado\n");
-                    currentScreen = USERNAME; // Cambiar a la pantalla USERNAME
+                    currentScreen = USERNAME; 
                 }
             }
         }
         break;
         case GAMEPLAY:
         {
-            // Carga de la textura de la pantalla de juego
-            if (gameplayTexture.id == 0)
+
+            //copiamos la respuesta actual
+            opc_correcta_actual = preguntas[pregunta_actual-1].respuestaCorrecta;
+
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                printf("Error al cargar la imagen 1.png\n");
-                return -1; // Salir del programa si no se pudo cargar la imagen
+                Vector2 mousePoint = GetMousePosition();
+
+                if (CheckCollisionPointRec(mousePoint, opcAbuttonBounds))
+                {
+                    respondido = 1;
+                    opc_correcta_usuario = 'A';
+                }
+                if (CheckCollisionPointRec(mousePoint, opcBbuttonBounds))
+                {
+                    respondido = 1;
+                    opc_correcta_usuario = 'B';
+                }
+                if (CheckCollisionPointRec(mousePoint, opcCbuttonBounds))
+                {
+                    respondido = 1;
+                    opc_correcta_usuario = 'C';
+                }
+                if (CheckCollisionPointRec(mousePoint, opcDbuttonBounds))
+                {
+                    respondido = 1;
+                    opc_correcta_usuario = 'D';
+                }
+            }
+
+            if (respondido)
+            {
+                framesCounter++;
+
+                if(opc_correcta_actual == opc_correcta_usuario)
+                {
+                    victoria = 1;
+                    PlaySound(correctaSound);
+
+                    if (framesCounter > 0 && framesCounter <120)
+                    {
+                        show_pic_bien = true;
+                    }
+
+                    pregunta_actual++;
+                    respondido = 0;
+                }
+                else
+                {
+                    derrota = 1;
+                    PlaySound(incorrectaSound);
+                    framesCounter = 0;
+
+                    if (framesCounter > 0 && framesCounter <120)
+                    {
+                        show_pic_mal = true;
+                    }
+
+                    respondido = 0;
+                    currentScreen = ENDING;
+                }
             }
 
             // Detectar el estado del mouse en los botones
+            if (CheckCollisionPointRec(GetMousePosition(), opcAbuttonBounds))
+            {
+                opcAButtonHovered = true;
+            }
+            else
+            {
+                opcAButtonHovered = false;
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), opcBbuttonBounds))
+            {
+                opcBButtonHovered = true;
+            }
+            else
+            {
+                opcBButtonHovered = false;
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), opcCbuttonBounds))
+            {
+                opcCButtonHovered = true;
+            }
+            else
+            {
+                opcCButtonHovered = false;
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), opcDbuttonBounds))
+            {
+                opcDButtonHovered = true;
+            }
+            else
+            {
+                opcDButtonHovered = false;
+            }
+
             if (CheckCollisionPointRec(GetMousePosition(), comodinButtonBounds))
             {
                 comodinButtonHovered = true;
@@ -380,6 +525,10 @@ int main(void)
                 currentScreen = MENU; // Volver al menú
             }
         }
+        break;
+
+        case ENDING:
+
         break;
 
         case CREDITS:
@@ -486,7 +635,7 @@ int main(void)
             }
             else
             {
-                DrawText("Limite alcanzado, presiona RETROCESO para borrar", 130, 350, 20, GRAY);
+                DrawText("Limite alcanzado", 130, 352, 20, GRAY);
             }
 
             // Dibujar el botón de proceder si hay un nombre ingresado
@@ -504,27 +653,231 @@ int main(void)
         break;
         case GAMEPLAY:
         {
-            DrawTexture(gameplayTexture, (screenWidth - gameplayTexture.width) / 2, (screenHeight - gameplayTexture.height) / 2, WHITE);
-        
-            // Dibujar la textura de los botones según el estado del mouse
-
-            DrawText("Comodines Disponibles:", (screenWidth - MeasureText("Comodines Disponibles:", 18)) / 2, screenHeight / 2 - 120, 18, GRAY);
-            if(!comodin_clicked)
-            {
-                if (comodinButtonHovered)
+            //if(!derrota)
+            //{
+                switch(pregunta_actual)
                 {
-                    DrawTexture(comodinButtonHover, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
-                    DrawText("Elimina 2 posibles respuestas", (screenWidth - MeasureText("Elimina 2 posibles respuestas", 18)) / 2 + 10, screenHeight / 2 - 30, 18, GRAY);
+                    case 1:
+                    {
+                        DrawTexture(gameplayTexture1, (screenWidth - gameplayTexture1.width) / 2, (screenHeight - gameplayTexture1.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
+
+                        if(show_pic_bien)
+                        {
+                            DrawTexture(correcta, 284,371, WHITE);
+                        }
+                        
+                        if(show_pic_mal)
+                        {
+                            DrawTexture(incorrecta, 284,371, WHITE);
+                        }
+                    }
+                    break;
+                    case 2:
+                    {
+                        DrawTexture(gameplayTexture2, (screenWidth - gameplayTexture2.width) / 2, (screenHeight - gameplayTexture2.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 3:
+                    {
+                        DrawTexture(gameplayTexture3, (screenWidth - gameplayTexture3.width) / 2, (screenHeight - gameplayTexture3.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 4:
+                    {
+                        DrawTexture(gameplayTexture4, (screenWidth - gameplayTexture4.width) / 2, (screenHeight - gameplayTexture4.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 5:
+                    {
+                        DrawTexture(gameplayTexture5, (screenWidth - gameplayTexture5.width) / 2, (screenHeight - gameplayTexture5.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 6:
+                    {
+                        DrawTexture(gameplayTexture6, (screenWidth - gameplayTexture6.width) / 2, (screenHeight - gameplayTexture6.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 7:
+                    {
+                        DrawTexture(gameplayTexture7, (screenWidth - gameplayTexture7.width) / 2, (screenHeight - gameplayTexture7.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 8:
+                    {
+                        DrawTexture(gameplayTexture8, (screenWidth - gameplayTexture8.width) / 2, (screenHeight - gameplayTexture8.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 9:
+                    {
+                        DrawTexture(gameplayTexture9, (screenWidth - gameplayTexture9.width) / 2, (screenHeight - gameplayTexture9.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 10:
+                    {
+                        DrawTexture(gameplayTexture10, (screenWidth - gameplayTexture10.width) / 2, (screenHeight - gameplayTexture10.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 11:
+                    {
+                        DrawTexture(gameplayTexture11, (screenWidth - gameplayTexture11.width) / 2, (screenHeight - gameplayTexture11.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 12:
+                    {
+                        DrawTexture(gameplayTexture12, (screenWidth - gameplayTexture12.width) / 2, (screenHeight - gameplayTexture12.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 13:
+                    {
+                        DrawTexture(gameplayTexture13, (screenWidth - gameplayTexture13.width) / 2, (screenHeight - gameplayTexture13.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 14:
+                    {
+                        DrawTexture(gameplayTexture14, (screenWidth - gameplayTexture14.width) / 2, (screenHeight - gameplayTexture14.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 15:
+                    {
+                        DrawTexture(gameplayTexture15, (screenWidth - gameplayTexture15.width) / 2, (screenHeight - gameplayTexture15.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                    case 16:
+                    {
+                        DrawTexture(gameplayTexture16, (screenWidth - gameplayTexture16.width) / 2, (screenHeight - gameplayTexture16.height) / 2, WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                    }
+                    break;
+                }
+
+                //userdraw
+
+                DrawText(name, 335,60,20,WHITE);
+            
+                // Dibujar la textura de los botones según el estado del mouse
+
+                DrawText("Comodines Disponibles:", (screenWidth - MeasureText("Comodines Disponibles:", 18)) / 2, screenHeight / 2 - 120, 18, GRAY);
+                if(!comodin_clicked)
+                {
+                    if (comodinButtonHovered)
+                    {
+                        DrawTexture(comodinButtonHover, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+                        DrawText("Elimina 2 posibles respuestas", (screenWidth - MeasureText("Elimina 2 posibles respuestas", 18)) / 2 + 10, screenHeight / 2 - 30, 18, GRAY);
+                    }
+                    else
+                    {
+                        DrawTexture(comodinButtonNormal, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+                    }
                 }
                 else
                 {
-                    DrawTexture(comodinButtonNormal, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
+                    DrawTexture(comodinButtonClicked, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
                 }
-            }
-            else
-            {
-                DrawTexture(comodinButtonClicked, comodinButtonBounds.x, comodinButtonBounds.y, WHITE);
-            }
+            //}
+
         }
         break;
         case POINTS:
@@ -546,6 +899,14 @@ int main(void)
             }
         }
 
+        case ENDING:
+        {
+            ClearBackground(RAYWHITE);
+            DrawText("ENDING", (screenWidth - MeasureText("ENDING", 40)) / 2, screenHeight / 2 - 20, 40, BLACK);
+        }
+        break;
+
+
         default:
             break;
         }
@@ -556,7 +917,7 @@ int main(void)
     UnloadTexture(loadingTexture);
     UnloadTexture(tutorialTexture); // Descargar la textura del tutorial
     UnloadTexture(usernameTexture); // Descargar la textura del username
-    UnloadTexture(gameplayTexture); // Descargar la textura del gameplay
+    UnloadTexture(gameplayTexture1); // Descargar la textura del gameplay
     UnloadSound(introSound);
     UnloadSound(startSound);
     UnloadSound(loopSound);
