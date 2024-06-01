@@ -1,0 +1,5 @@
+urigame 100
+mtorochi 200
+yamcha 200
+vegeta 8000
+freezer 16000

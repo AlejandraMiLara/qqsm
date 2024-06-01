@@ -1,6 +1,6 @@
 #include "raylib.h"
-#include <stdio.h>  // Incluir la biblioteca para printf
-#include <string.h> // Incluir la biblioteca para strlen
+#include <stdio.h> 
+#include <string.h>
 #include <time.h>
 #include <stdlib.h>
 
@@ -38,29 +38,56 @@ typedef enum GameScreen
 } GameScreen;
 
 
-
-// Función para verificar si un carácter es válido (letra o número)
 bool IsValidChar(int key)
 {
-    return ((key >= 48 && key <= 57) || // Números 0-9
-            (key >= 65 && key <= 90) || // Letras mayúsculas A-Z
-            (key >= 97 && key <= 122)|| // Letras minúsculas a-z
+    return ((key >= 48 && key <= 57) || // 0-9
+            (key >= 65 && key <= 90) || // A-Z
+            (key >= 97 && key <= 122)|| // a-z
             (key == 8) ); 
 }
 
 void createFile()
 {
     FILE *file;
-    file = fopen("reg.txt", "w");
+
+    file = fopen("reg.txt", "r");
+    if(file == NULL)
+    {
+        file = fopen("reg.txt", "w");
+    }
     fclose(file);
+}
+
+void loadFile(Usuario usuarios[], int *numUsuarios)
+{
+    FILE *archivo_leer = fopen("reg.txt", "r");
+    if (archivo_leer == NULL) {
+        printf("Error al abrir el archivo\n");
+        return;
+    }
+
+    char linea[150];
+    *numUsuarios = 0;
+    while (fgets(linea, sizeof(linea), archivo_leer)) {
+        if (sscanf(linea, "%s %d", usuarios[*numUsuarios].usuario, &usuarios[*numUsuarios].ganancias) == 2) {
+            usuarios[*numUsuarios].id = *numUsuarios + 1;
+            (*numUsuarios)++;
+        }
+    }
+
+    fclose(archivo_leer);
 }
 
 int main(void)
 {
     srand(time(NULL));
+
+    Usuario usuarios[100];
+    int numUsuarios = 0;
+
     createFile();
+    loadFile(usuarios, &numUsuarios);
     
-    // Inicializar la ventana de Raylib
     const int screenWidth = 800;
     const int screenHeight = 450;
     InitWindow(screenWidth, screenHeight, "QUIEN QUIERE SER MILLONARIO: JUEGO");
@@ -71,7 +98,7 @@ int main(void)
 
     SetTargetFPS(60); 
 
-    InitAudioDevice(); // Initialize
+    InitAudioDevice();
     Sound introSound = LoadSound("resources/intro.wav");
     Sound startSound = LoadSound("resources/pregunta/start.wav");
     Sound loopSound = LoadSound("resources/pregunta/loop.wav");
@@ -79,12 +106,15 @@ int main(void)
     Sound correctaSound = LoadSound("resources/pregunta/correcta.wav");
     Sound incorrectaSound = LoadSound("resources/pregunta/incorrecta.wav");
 
+    Sound endgameSound = LoadSound("resources/pregunta/endgame.wav");
+
     bool introSoundPlayed = false;
     bool startSoundPlayed = false;
     bool loopSoundPlayed = false;
 
 
 /*****************************************************************************/
+
 
     //VARIABLES LOGO
     Texture2D loadingTexture = LoadTexture("resources/cargando.png");
@@ -148,8 +178,6 @@ int main(void)
     Texture2D comodinButtonHover = LoadTexture("resources/botones/comodin_hover.png");
     Texture2D comodinButtonClicked = LoadTexture("resources/botones/comodin_click.png");
     Texture2D pregunta_hover = LoadTexture("resources/hover_pregunta.png");
-    Texture2D correcta = LoadTexture("resources/bien.png");
-    Texture2D incorrecta = LoadTexture("resources/mal.png");
 
     Rectangle opcAbuttonBounds = {40, 320, 227, 46};
     Rectangle opcBbuttonBounds = {307, 320, 227, 46};
@@ -162,7 +190,6 @@ int main(void)
     char opc_correcta_actual;
     char opc_correcta_usuario;
     int respondido = 0;
-    int respuestaCounter = 0;
 
     bool comodin_clicked = false;
     bool comodinButtonHovered = false;
@@ -171,8 +198,7 @@ int main(void)
     bool opcCButtonHovered = false;
     bool opcDButtonHovered = false;
 
-    bool show_pic_bien = false;
-    bool show_pic_mal = false;
+    bool juego_actual_subido = false;
 
     Rectangle comodinButtonBounds = {screenWidth / 2.0f - 80, screenHeight / 2.0f - 100, 144, 50};
 
@@ -195,13 +221,43 @@ int main(void)
         {"¿Cuál es la capital de Finlandia?", "A) Oslo", "B) Estocolmo", "C) Helsinki", "D) Copenhague", 'C'}
     };
 
+    int comodin_opc_int; //a=0 b=1 c=2 d=3 respuesta correcta de la pregunta actual
+    char comodin_opc_alternative_char; //char de la respuesta alternativa 
+    int disponible_comodin = 1;
+
 
     //VARIABLES POINTS
+    Texture2D pointsTexture = LoadTexture("resources/puntos.png");
 
 
 
     //VARIABLES ENDING
 
+    Texture2D win = LoadTexture("resources/win.png");
+    Texture2D gameover = LoadTexture("resources/gameover.png");
+
+    bool archivo_guardado = false;
+    int ganancias_temp = 0;
+
+    int vect_ganancias[16] =
+    {
+        100,
+        200,
+        300,
+        400,
+        500,
+        1000,
+        2000,
+        4000,
+        8000,
+        16000,
+        32000,
+        64000,
+        125000,
+        250000,
+        500000,
+        1000000
+    };
 
 
     //VARIABLES CREDITS
@@ -232,10 +288,9 @@ int main(void)
 
 
 
-    // Bucle principal del juego
+
     while (!WindowShouldClose())
     {
-        // Actualizar el temporizador y la animación de los puntos
         timer += GetFrameTime();
 
         if (currentScreen == LOGO && timer >= interval)
@@ -244,14 +299,12 @@ int main(void)
             dotCount = (dotCount + 1) % (maxDots + 1);
         }
 
-        // Reproducir el sonido de introducción si no se ha reproducido antes
         if (currentScreen == MENU && !introSoundPlayed)
         {
             PlaySound(introSound);
-            introSoundPlayed = true; // Marcar como reproducido
+            introSoundPlayed = true;
         }
 
-        // Reproducir el sonido de la pregunta si no se ha reproducido antes
         if (currentScreen == GAMEPLAY && !startSoundPlayed)
         {
             StopSound(introSound);
@@ -260,11 +313,16 @@ int main(void)
             PlaySound(loopSound);
         }
 
+        if(currentScreen == ENDING && pregunta_actual == 16)
+        {
+            PlaySound(loopSound);
+        }
+
         switch (currentScreen)
         {
         case LOGO:
         {
-            framesCounter++; // Count frames
+            framesCounter++;
 
             if (framesCounter > 260)
             {
@@ -275,6 +333,37 @@ int main(void)
         break;
         case MENU:
         {
+
+            bool archivo_guardado = false;
+
+            pregunta_actual = 1;
+
+            char name[MAX_INPUT_CHARS + 1] = "\0";
+            int letterCount = 0;
+
+            bool mouseOnText = false;
+
+            ganancias_temp = 0;
+
+            comodin_clicked = false;
+            disponible_comodin = 1;
+
+            juego_actual_subido = false;
+
+
+            startSoundPlayed = false;
+            loopSoundPlayed = false;
+
+            if(IsSoundPlaying(loopSound))
+            {
+                StopSound(loopSound);
+            }
+
+            if(IsSoundPlaying(endgameSound))
+            {
+                StopSound(endgameSound);
+            }
+
 
             // Detectar el estado del mouse en los botones
             if (CheckCollisionPointRec(GetMousePosition(), creditosButtonBounds))
@@ -304,28 +393,26 @@ int main(void)
                 tutorialButtonHovered = false;
             }
 
-            // Detectar clic en los botones
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 Vector2 mousePoint = GetMousePosition();
                 if (CheckCollisionPointRec(mousePoint, tutorialButtonBounds))
                 {
-                    currentScreen = TUTORIAL; // Cambiar a la pantalla TUTORIAL
+                    currentScreen = TUTORIAL; 
                 }
                 else if (CheckCollisionPointRec(mousePoint, pointsButtonBounds))
                 {
-                    currentScreen = POINTS; // Cambiar a la pantalla POINTS
+                    currentScreen = POINTS; 
                 }
                 else if (CheckCollisionPointRec(mousePoint, creditosButtonBounds))
                 {
-                    currentScreen = CREDITS; // Cambiar a la pantalla CREDITS
+                    currentScreen = CREDITS; 
                 }
             }
         }
         break;
         case USERNAME:
         {
-            // Actualizar el estado del cuadro de texto y entrada del usuario
             if (CheckCollisionPointRec(GetMousePosition(), textBox))
                 mouseOnText = true;
             else
@@ -341,11 +428,11 @@ int main(void)
                     if (IsValidChar(key) && (letterCount < MAX_INPUT_CHARS))
                     {
                         name[letterCount] = (char)key;
-                        name[letterCount + 1] = '\0'; // Add null terminator at the end of the string.
+                        name[letterCount + 1] = '\0'; 
                         letterCount++;
                     }
 
-                    key = GetCharPressed(); // Check next character in the queue
+                    key = GetCharPressed();
                 }
 
                 if (IsKeyPressed(KEY_BACKSPACE)) 
@@ -370,21 +457,18 @@ int main(void)
                 framesCounter = 0;
             }
 
-            // Verificar si se presionó el botón de proceder
             if (strlen(name) > 0 && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 Vector2 mousePoint = GetMousePosition();
                 if (CheckCollisionPointRec(mousePoint, proceedButtonBounds))
                 {
-                    currentScreen = GAMEPLAY; // Cambiar a la pantalla GAMEPLAY
+                    currentScreen = GAMEPLAY; 
                 }
             }
         }
         break;
         case TUTORIAL:
         {
-
-            // Detectar clic en el área del botón
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 Vector2 mousePoint = GetMousePosition();
@@ -398,9 +482,34 @@ int main(void)
         case GAMEPLAY:
         {
 
+            if(!IsSoundPlaying(loopSound))
+            {
+                PlaySound(loopSound);
+            }
+
             //copiamos la respuesta actual
             opc_correcta_actual = preguntas[pregunta_actual-1].respuestaCorrecta;
 
+            switch (opc_correcta_actual)
+            {
+            case 'A':
+                comodin_opc_int = 0; 
+                comodin_opc_alternative_char = 'D';
+                break;
+            case 'B':
+                comodin_opc_int = 1; 
+                comodin_opc_alternative_char = 'C';
+                break;
+            case 'C':
+                comodin_opc_int = 2; 
+                comodin_opc_alternative_char = 'A';
+                break;
+            case 'D':
+                comodin_opc_int = 3;
+                comodin_opc_alternative_char = 'B'; 
+                break;
+            }
+            
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
@@ -430,38 +539,52 @@ int main(void)
 
             if (respondido)
             {
-                framesCounter++;
-
                 if(opc_correcta_actual == opc_correcta_usuario)
                 {
                     victoria = 1;
                     PlaySound(correctaSound);
 
-                    if (framesCounter > 0 && framesCounter <120)
-                    {
-                        show_pic_bien = true;
-                    }
-
                     pregunta_actual++;
+                    comodin_clicked = false;
                     respondido = 0;
+
+                    if(!juego_actual_subido && pregunta_actual == 16)
+                    {
+                        ganancias_temp = vect_ganancias[pregunta_actual-2];
+                        usuarios[numUsuarios].ganancias = ganancias_temp;
+                        strcpy(usuarios[numUsuarios].usuario, name);
+                        usuarios[numUsuarios].id = numUsuarios + 1;
+                        numUsuarios++;
+                        juego_actual_subido = false;
+                    }
                 }
                 else
                 {
                     derrota = 1;
+                    StopSound(loopSound);
                     PlaySound(incorrectaSound);
-                    framesCounter = 0;
+                    comodin_clicked = false;
 
-                    if (framesCounter > 0 && framesCounter <120)
+                    framesCounter = 0;
+                    respondido = 0;
+
+                    if(!juego_actual_subido)
                     {
-                        show_pic_mal = true;
+                        if(pregunta_actual > 1)
+                        {
+                            ganancias_temp = vect_ganancias[pregunta_actual-2];
+                            usuarios[numUsuarios].ganancias = ganancias_temp;
+                            strcpy(usuarios[numUsuarios].usuario, name);
+                            usuarios[numUsuarios].id = numUsuarios + 1;
+                            numUsuarios++;
+                            juego_actual_subido = true;
+                        }
                     }
 
-                    respondido = 0;
                     currentScreen = ENDING;
                 }
             }
 
-            // Detectar el estado del mouse en los botones
             if (CheckCollisionPointRec(GetMousePosition(), opcAbuttonBounds))
             {
                 opcAButtonHovered = true;
@@ -507,28 +630,57 @@ int main(void)
                 comodinButtonHovered = false;
             }
 
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !comodin_clicked)
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !comodin_clicked && disponible_comodin)
             {
                 Vector2 mousePoint = GetMousePosition();
                 if (CheckCollisionPointRec(mousePoint, comodinButtonBounds))
                 {
                     comodin_clicked = true;
+                    disponible_comodin = 0;
                 }
             }
         }
         break;
         case POINTS:
         {
-            // Detectar clic para volver al menú
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                currentScreen = MENU; // Volver al menú
+                currentScreen = MENU;
             }
         }
         break;
 
         case ENDING:
+            ClearBackground(BLACK);
 
+            if(pregunta_actual == 16)
+            {
+                if(!IsSoundPlaying(loopSound))
+                {
+                    PlaySound(loopSound);
+                }
+            }
+
+            if(!archivo_guardado)
+            {
+                if(pregunta_actual != 1)
+                {
+                    ganancias_temp = vect_ganancias[pregunta_actual-2];
+                    FILE* archivo_escribir = fopen("reg.txt", "a");
+                    if (archivo_escribir != NULL)
+                    {
+                        fprintf(archivo_escribir, "%s %d\n", name, ganancias_temp);
+                        fclose(archivo_escribir);
+                    }
+                }
+
+                archivo_guardado = true;
+            }
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                currentScreen = POINTS;
+            }
         break;
 
         case CREDITS:
@@ -540,18 +692,16 @@ int main(void)
                 DrawText(creditsText[i], (screenWidth - MeasureText(creditsText[i], 20)) / 2, creditsPositionY + i * 30, 20, RAYWHITE);
             }
 
-            creditsPositionY -= 0.5f; // Reducir la velocidad de desplazamiento
+            creditsPositionY -= 0.5f;
 
-            // Reiniciar la posición si los créditos se desplazan completamente
             if (creditsPositionY + creditsLines * 30 < 0)
             {
                 creditsPositionY = screenHeight;
             }
 
-            // Detectar clic para volver al menú
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                currentScreen = MENU; // Volver al menú
+                currentScreen = MENU;
             }
         }
         break;
@@ -561,7 +711,6 @@ int main(void)
             break;
         }
 
-        // Limpiar la ventana actual
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
@@ -569,6 +718,7 @@ int main(void)
         {
         case LOGO:
         {
+            ClearBackground(WHITE);
             DrawTexture(loadingTexture, (screenWidth - loadingTexture.width) / 2, (screenHeight - loadingTexture.height) / 2, WHITE);
             DrawText(TextFormat("%s%s", loadingText, (dotCount == 0 ? "" : (dotCount == 1 ? "." : (dotCount == 2 ? ".." : "...")))), textPosition.x, textPosition.y, 20, PURPLE);
         }
@@ -579,7 +729,6 @@ int main(void)
 
             DrawTexture(menuTexture, (screenWidth - menuTexture.width) / 2, (screenHeight - menuTexture.height) / 2, WHITE);
 
-            // Dibujar la textura de los botones según el estado del mouse
             if (tutorialButtonHovered)
             {
                 DrawTexture(tutorialButtonHover, tutorialButtonBounds.x, tutorialButtonBounds.y, WHITE);
@@ -611,8 +760,6 @@ int main(void)
         case USERNAME:
         {
             ClearBackground(RAYWHITE);
-
-            // Dibujar la imagen del fondo de la pantalla de nombre de usuario
             DrawTexture(usernameTexture, (screenWidth - usernameTexture.width) / 2, (screenHeight - usernameTexture.height) / 2, WHITE);
 
             DrawText("HAZ CLICK SOBRE EL ESPACIO PARA COMENZAR A ESCRIBIR", 90, 20, 20, GRAY);
@@ -629,7 +776,6 @@ int main(void)
 
             if (letterCount < MAX_INPUT_CHARS)
             {
-                // Draw blinking underscore char
                 if (((framesCounter / 20) % 2) == 0)
                     DrawText("_", (int)textBox.x + 8 + MeasureText(name, 40), (int)textBox.y + 12, 40, VIOLET);
             }
@@ -638,7 +784,6 @@ int main(void)
                 DrawText("Limite alcanzado", 130, 352, 20, GRAY);
             }
 
-            // Dibujar el botón de proceder si hay un nombre ingresado
             if (strlen(name) > 0)
             {
                 DrawRectangleRec(proceedButtonBounds, BLANK);
@@ -647,12 +792,13 @@ int main(void)
         break;
         case TUTORIAL:
         {
-            // Dibujar la imagen del tutorial
+            ClearBackground(WHITE);
             DrawTexture(tutorialTexture, (screenWidth - tutorialTexture.width) / 2, (screenHeight - tutorialTexture.height) / 2, WHITE);
         }
         break;
         case GAMEPLAY:
         {
+            ClearBackground(WHITE);
             //if(!derrota)
             //{
                 switch(pregunta_actual)
@@ -660,11 +806,55 @@ int main(void)
                     case 1:
                     {
                         DrawTexture(gameplayTexture1, (screenWidth - gameplayTexture1.width) / 2, (screenHeight - gameplayTexture1.height) / 2, WHITE);
-                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,16,WHITE);
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
                         DrawRectangleRec(opcAbuttonBounds, BLANK);
                         DrawRectangleRec(opcBbuttonBounds, BLANK);
                         DrawRectangleRec(opcCbuttonBounds, BLANK);
@@ -690,177 +880,1209 @@ int main(void)
                             DrawTexture(pregunta_hover, 284,371, WHITE);
                         }
 
-                        if(show_pic_bien)
-                        {
-                            DrawTexture(correcta, 284,371, WHITE);
-                        }
-                        
-                        if(show_pic_mal)
-                        {
-                            DrawTexture(incorrecta, 284,371, WHITE);
-                        }
                     }
                     break;
                     case 2:
                     {
                         DrawTexture(gameplayTexture2, (screenWidth - gameplayTexture2.width) / 2, (screenHeight - gameplayTexture2.height) / 2, WHITE);
-                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,16,WHITE);
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 3:
                     {
                         DrawTexture(gameplayTexture3, (screenWidth - gameplayTexture3.width) / 2, (screenHeight - gameplayTexture3.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 4:
                     {
                         DrawTexture(gameplayTexture4, (screenWidth - gameplayTexture4.width) / 2, (screenHeight - gameplayTexture4.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 5:
                     {
                         DrawTexture(gameplayTexture5, (screenWidth - gameplayTexture5.width) / 2, (screenHeight - gameplayTexture5.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 6:
                     {
                         DrawTexture(gameplayTexture6, (screenWidth - gameplayTexture6.width) / 2, (screenHeight - gameplayTexture6.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 7:
                     {
                         DrawTexture(gameplayTexture7, (screenWidth - gameplayTexture7.width) / 2, (screenHeight - gameplayTexture7.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 8:
                     {
                         DrawTexture(gameplayTexture8, (screenWidth - gameplayTexture8.width) / 2, (screenHeight - gameplayTexture8.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 9:
                     {
                         DrawTexture(gameplayTexture9, (screenWidth - gameplayTexture9.width) / 2, (screenHeight - gameplayTexture9.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 10:
                     {
                         DrawTexture(gameplayTexture10, (screenWidth - gameplayTexture10.width) / 2, (screenHeight - gameplayTexture10.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 11:
                     {
                         DrawTexture(gameplayTexture11, (screenWidth - gameplayTexture11.width) / 2, (screenHeight - gameplayTexture11.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 12:
                     {
                         DrawTexture(gameplayTexture12, (screenWidth - gameplayTexture12.width) / 2, (screenHeight - gameplayTexture12.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 13:
                     {
                         DrawTexture(gameplayTexture13, (screenWidth - gameplayTexture13.width) / 2, (screenHeight - gameplayTexture13.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 14:
                     {
                         DrawTexture(gameplayTexture14, (screenWidth - gameplayTexture14.width) / 2, (screenHeight - gameplayTexture14.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 15:
                     {
                         DrawTexture(gameplayTexture15, (screenWidth - gameplayTexture15.width) / 2, (screenHeight - gameplayTexture15.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                     case 16:
                     {
                         DrawTexture(gameplayTexture16, (screenWidth - gameplayTexture16.width) / 2, (screenHeight - gameplayTexture16.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
-                        DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+
+
+                        if(comodin_clicked)
+                        {
+                            if(opc_correcta_actual == 'A' || comodin_opc_alternative_char == 'A')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'B' || comodin_opc_alternative_char == 'B')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,RED);
+                            }
+
+                            if(opc_correcta_actual == 'C' || comodin_opc_alternative_char == 'C')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,RED);
+                            }
+                            
+                            if(opc_correcta_actual == 'D' || comodin_opc_alternative_char == 'D')
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,GREEN);
+                            }
+                            else
+                            {
+                                DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,RED);
+                            }
+                            
+                        }
+                        else
+                        {
+                            DrawText(preguntas[pregunta_actual-1].opcionA, 50,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionB, 320,335,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionC, 50,397,20,WHITE);
+                            DrawText(preguntas[pregunta_actual-1].opcionD, 320,397,20,WHITE);
+                        }
+
+
+                        DrawRectangleRec(opcAbuttonBounds, BLANK);
+                        DrawRectangleRec(opcBbuttonBounds, BLANK);
+                        DrawRectangleRec(opcCbuttonBounds, BLANK);
+                        DrawRectangleRec(opcDbuttonBounds, BLANK);
+
+                        if(opcAButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 15,308, WHITE);
+                        }
+
+                        if(opcBButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 280,308, WHITE);
+                        }
+
+                        if(opcCButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 18,372, WHITE);
+                        }
+
+                        if(opcDButtonHovered)
+                        {
+                            DrawTexture(pregunta_hover, 284,371, WHITE);
+                        }
                     }
                     break;
                 }
 
-                //userdraw
-
                 DrawText(name, 335,60,20,WHITE);
-            
-                // Dibujar la textura de los botones según el estado del mouse
-
                 DrawText("Comodines Disponibles:", (screenWidth - MeasureText("Comodines Disponibles:", 18)) / 2, screenHeight / 2 - 120, 18, GRAY);
-                if(!comodin_clicked)
+                if(!comodin_clicked && disponible_comodin)
                 {
                     if (comodinButtonHovered)
                     {
@@ -883,14 +2105,56 @@ int main(void)
         case POINTS:
         {
             ClearBackground(RAYWHITE);
-            DrawText("Puntos", (screenWidth - MeasureText("Puntos", 40)) / 2, screenHeight / 2 - 20, 40, BLACK);
+            DrawTexture(pointsTexture, (screenWidth - pointsTexture.width) / 2, (screenHeight - pointsTexture.height) / 2, WHITE);
+
+            int y = 150;
+            int x1 = 480;
+            int x2 = 640;
+            int start = numUsuarios - 10 < 0 ? 0 : numUsuarios - 10;
+
+            int maxGanancias = 0;
+            int indiceMaxGanancias = -1;
+
+            if(numUsuarios > 0)
+            {
+                for (int i = start; i < numUsuarios; ++i)
+                {
+                    DrawText(usuarios[i].usuario, x1, y, 14, WHITE);  // Muestra el nombre del usuario en x1
+                    char gananciasStr[10];  // Asume que los puntos no superarán los 9 dígitos
+                    sprintf(gananciasStr, "%d", usuarios[i].ganancias);
+                    DrawText(gananciasStr, x2, y, 14, WHITE);   // Muestra los puntos del usuario en x2
+                    y += 15;
+                }
+
+                for (int i = start; i < numUsuarios; ++i)
+                {
+                    if (usuarios[i].ganancias >= maxGanancias || indiceMaxGanancias == -1) {
+                        maxGanancias = usuarios[i].ganancias;
+                        indiceMaxGanancias = i;
+                    }
+                }
+
+                if (indiceMaxGanancias != -1)
+                {
+                    DrawText(usuarios[indiceMaxGanancias].usuario, 160, 220, 22, WHITE);
+                    char gananciasStr[10];
+
+                    sprintf(gananciasStr, "%d", maxGanancias);
+                    DrawText(gananciasStr, 290, 220, 22, WHITE);
+                }
+
+            }
+            else
+            {
+                DrawText("Sin registros por el momento", x1, y, 14, WHITE);
+            }
+
         }
         break;
 
         case CREDITS:
         {
             ClearBackground(BLACK);
-            // Dibujar la imagen del fondo de la pantalla 
             DrawTexture(creditsTexture, (screenWidth - creditsTexture.width) / 2, (screenHeight - creditsTexture.height) / 2, WHITE);
 
             for (int i = 0; i < creditsLines; i++)
@@ -898,11 +2162,20 @@ int main(void)
                 DrawText(creditsText[i], (screenWidth - MeasureText(creditsText[i], 20)) / 2, creditsPositionY + i * 30, 20, RAYWHITE);
             }
         }
+        break;
 
         case ENDING:
         {
-            ClearBackground(RAYWHITE);
-            DrawText("ENDING", (screenWidth - MeasureText("ENDING", 40)) / 2, screenHeight / 2 - 20, 40, BLACK);
+            ClearBackground(WHITE);
+            
+            if(derrota)
+            {
+                DrawTexture(gameover, (screenWidth - gameover.width) / 2, (screenHeight - gameover.height) / 2, WHITE);
+            }
+            else
+            {
+                DrawTexture(win, (screenWidth - win.width) / 2, (screenHeight - win.height) / 2, WHITE);
+            }
         }
         break;
 
@@ -915,12 +2188,28 @@ int main(void)
     }
 
     UnloadTexture(loadingTexture);
-    UnloadTexture(tutorialTexture); // Descargar la textura del tutorial
-    UnloadTexture(usernameTexture); // Descargar la textura del username
-    UnloadTexture(gameplayTexture1); // Descargar la textura del gameplay
+    UnloadTexture(tutorialTexture);
+    UnloadTexture(usernameTexture);
+    UnloadTexture(gameplayTexture1);
+    UnloadTexture(gameplayTexture2);
+    UnloadTexture(gameplayTexture3);
+    UnloadTexture(gameplayTexture4);
+    UnloadTexture(gameplayTexture5);
+    UnloadTexture(gameplayTexture6);
+    UnloadTexture(gameplayTexture7);
+    UnloadTexture(gameplayTexture8);
+    UnloadTexture(gameplayTexture9);
+    UnloadTexture(gameplayTexture10);
+    UnloadTexture(gameplayTexture11);
+    UnloadTexture(gameplayTexture12);
+    UnloadTexture(gameplayTexture13);
+    UnloadTexture(gameplayTexture14);
+    UnloadTexture(gameplayTexture15);
+    UnloadTexture(gameplayTexture16);
     UnloadSound(introSound);
     UnloadSound(startSound);
     UnloadSound(loopSound);
+    UnloadSound(endgameSound);
     CloseAudioDevice();
     CloseWindow();
 
