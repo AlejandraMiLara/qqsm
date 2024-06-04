@@ -111,6 +111,10 @@ int main(void)
     bool introSoundPlayed = false;
     bool startSoundPlayed = false;
     bool loopSoundPlayed = false;
+    bool endgameSoundPlayed = false;
+
+    bool incorrectaSoundPlayed = false;
+    bool correctaSoundPlayed = false;
 
 
 /*****************************************************************************/
@@ -208,16 +212,16 @@ int main(void)
         {"¿Quién pintó la Mona Lisa?", "A) Vincent van Gogh", "B) Pablo Picasso", "C) Leonardo da Vinci", "D) Rembrandt", 'C'},
         {"¿Cuál es el metal más ligero?", "A) Oro", "B) Plomo", "C) Litio", "D) Mercurio", 'C'},
         {"¿Cuál es el planeta más cercano al Sol?", "A) Venus", "B) Tierra", "C) Marte", "D) Mercurio", 'D'},
-        {"¿Cuál es el país más grande del mundo por área?", "A) Canadá", "B) China", "C) Rusia", "D) Estados Unidos", 'C'},
+        {"¿Cuál es el país más grande \ndel mundo por área?", "A) Canadá", "B) China", "C) Rusia", "D) Estados Unidos", 'C'},
         {"¿Cuál es el río más largo del mundo?", "A) Amazonas", "B) Nilo", "C) Yangtsé", "D) Misisipi", 'B'},
-        {"¿Cuál es el órgano más grande del cuerpo humano?", "A) Hígado", "B) Cerebro", "C) Piel", "D) Corazón", 'C'},
+        {"¿Cuál es el órgano más grande del\n cuerpo humano?", "A) Hígado", "B) Cerebro", "C) Piel", "D) Corazón", 'C'},
         {"¿Cuál es la moneda oficial de Japón?", "A) Yen", "B) Won", "C) Yuan", "D) Dólar", 'A'},
         {"¿Cuál es el idioma más hablado en el mundo?", "A) Inglés", "B) Mandarín", "C) Español", "D) Hindi", 'B'},
         {"¿Cuál es la ciudad más poblada del mundo?", "A) Tokio", "B) Nueva York", "C) São Paulo", "D) Mumbai", 'A'},
         {"¿En qué país se encuentra la Torre Eiffel?", "A) España", "B) Italia", "C) Francia", "D) Alemania", 'C'},
         {"¿Cuál es el desierto más grande del mundo?", "A) Sahara", "B) Gobi", "C) Kalahari", "D) Antártida", 'D'},
         {"¿Cuál es la capital de Australia?", "A) Sídney", "B) Melbourne", "C) Canberra", "D) Brisbane", 'C'},
-        {"¿En qué año comenzó la Primera Guerra Mundial?", "A) 1905", "B) 1914", "C) 1921", "D) 1939", 'B'},
+        {"¿En qué año comenzó la \nPrimera Guerra Mundial?", "A) 1905", "B) 1914", "C) 1921", "D) 1939", 'B'},
         {"¿Cuál es la capital de Finlandia?", "A) Oslo", "B) Estocolmo", "C) Helsinki", "D) Copenhague", 'C'}
     };
 
@@ -237,6 +241,7 @@ int main(void)
     Texture2D gameover = LoadTexture("resources/gameover.png");
 
     bool archivo_guardado = false;
+
     int ganancias_temp = 0;
 
     int vect_ganancias[16] =
@@ -313,11 +318,6 @@ int main(void)
             PlaySound(loopSound);
         }
 
-        if(currentScreen == ENDING && pregunta_actual == 16)
-        {
-            PlaySound(loopSound);
-        }
-
         switch (currentScreen)
         {
         case LOGO:
@@ -334,9 +334,12 @@ int main(void)
         case MENU:
         {
 
-            bool archivo_guardado = false;
+            archivo_guardado = false;
 
             pregunta_actual = 1;
+            victoria = 0; //
+            derrota = 0; //
+            respondido = 0; //
 
             char name[MAX_INPUT_CHARS + 1] = "\0";
             int letterCount = 0;
@@ -353,6 +356,7 @@ int main(void)
 
             startSoundPlayed = false;
             loopSoundPlayed = false;
+            endgameSoundPlayed = false;
 
             if(IsSoundPlaying(loopSound))
             {
@@ -548,21 +552,24 @@ int main(void)
                     comodin_clicked = false;
                     respondido = 0;
 
-                    if(!juego_actual_subido && pregunta_actual == 16)
+                    if(!juego_actual_subido)
                     {
                         ganancias_temp = vect_ganancias[pregunta_actual-2];
                         usuarios[numUsuarios].ganancias = ganancias_temp;
                         strcpy(usuarios[numUsuarios].usuario, name);
                         usuarios[numUsuarios].id = numUsuarios + 1;
                         numUsuarios++;
-                        juego_actual_subido = false;
+                        juego_actual_subido = true;
+                    }
+
+                    if(pregunta_actual > 16)
+                    {
+                        currentScreen = ENDING;
                     }
                 }
                 else
                 {
                     derrota = 1;
-                    StopSound(loopSound);
-                    PlaySound(incorrectaSound);
                     comodin_clicked = false;
 
                     framesCounter = 0;
@@ -643,6 +650,9 @@ int main(void)
         break;
         case POINTS:
         {
+
+            StopSound(loopSound);
+
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 currentScreen = MENU;
@@ -652,13 +662,17 @@ int main(void)
 
         case ENDING:
             ClearBackground(BLACK);
+            StopSound(loopSound);
 
-            if(pregunta_actual == 16)
-            {
-                if(!IsSoundPlaying(loopSound))
-                {
-                    PlaySound(loopSound);
+            static bool sonidoReproducido = false;
+
+            if(!sonidoReproducido) {
+                if(pregunta_actual > 16) {
+                    PlaySound(endgameSound);
+                } else {
+                    PlaySound(incorrectaSound);
                 }
+                sonidoReproducido = true;
             }
 
             if(!archivo_guardado)
@@ -680,12 +694,15 @@ int main(void)
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 currentScreen = POINTS;
+                sonidoReproducido = false;
             }
         break;
 
         case CREDITS:
         {
             ClearBackground(BLACK);
+            StopSound(loopSound);
+            StopSound(endgameSound);
 
             for (int i = 0; i < creditsLines; i++)
             {
@@ -805,6 +822,9 @@ int main(void)
                 {
                     case 1:
                     {
+                        derrota = 0;
+                        victoria = 0;
+
                         DrawTexture(gameplayTexture1, (screenWidth - gameplayTexture1.width) / 2, (screenHeight - gameplayTexture1.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,16,WHITE);
 
@@ -884,6 +904,9 @@ int main(void)
                     break;
                     case 2:
                     {
+                        derrota = 0;
+                        victoria = 0;
+                        
                         DrawTexture(gameplayTexture2, (screenWidth - gameplayTexture2.width) / 2, (screenHeight - gameplayTexture2.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,16,WHITE);
 
@@ -962,6 +985,8 @@ int main(void)
                     break;
                     case 3:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture3, (screenWidth - gameplayTexture3.width) / 2, (screenHeight - gameplayTexture3.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1040,6 +1065,8 @@ int main(void)
                     break;
                     case 4:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture4, (screenWidth - gameplayTexture4.width) / 2, (screenHeight - gameplayTexture4.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1120,6 +1147,8 @@ int main(void)
                     break;
                     case 5:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture5, (screenWidth - gameplayTexture5.width) / 2, (screenHeight - gameplayTexture5.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1200,6 +1229,8 @@ int main(void)
                     break;
                     case 6:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture6, (screenWidth - gameplayTexture6.width) / 2, (screenHeight - gameplayTexture6.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1280,6 +1311,8 @@ int main(void)
                     break;
                     case 7:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture7, (screenWidth - gameplayTexture7.width) / 2, (screenHeight - gameplayTexture7.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1360,6 +1393,8 @@ int main(void)
                     break;
                     case 8:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture8, (screenWidth - gameplayTexture8.width) / 2, (screenHeight - gameplayTexture8.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1440,6 +1475,8 @@ int main(void)
                     break;
                     case 9:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture9, (screenWidth - gameplayTexture9.width) / 2, (screenHeight - gameplayTexture9.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1520,6 +1557,8 @@ int main(void)
                     break;
                     case 10:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture10, (screenWidth - gameplayTexture10.width) / 2, (screenHeight - gameplayTexture10.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1600,6 +1639,8 @@ int main(void)
                     break;
                     case 11:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture11, (screenWidth - gameplayTexture11.width) / 2, (screenHeight - gameplayTexture11.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1680,6 +1721,8 @@ int main(void)
                     break;
                     case 12:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture12, (screenWidth - gameplayTexture12.width) / 2, (screenHeight - gameplayTexture12.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1760,6 +1803,8 @@ int main(void)
                     break;
                     case 13:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture13, (screenWidth - gameplayTexture13.width) / 2, (screenHeight - gameplayTexture13.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1840,6 +1885,8 @@ int main(void)
                     break;
                     case 14:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture14, (screenWidth - gameplayTexture14.width) / 2, (screenHeight - gameplayTexture14.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -1920,6 +1967,8 @@ int main(void)
                     break;
                     case 15:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture15, (screenWidth - gameplayTexture15.width) / 2, (screenHeight - gameplayTexture15.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -2000,6 +2049,8 @@ int main(void)
                     break;
                     case 16:
                     {
+                        derrota = 0;
+                        victoria = 0;
                         DrawTexture(gameplayTexture16, (screenWidth - gameplayTexture16.width) / 2, (screenHeight - gameplayTexture16.height) / 2, WHITE);
                         DrawText(preguntas[pregunta_actual-1].pregunta, 60,250,20,WHITE);
 
@@ -2172,7 +2223,8 @@ int main(void)
             {
                 DrawTexture(gameover, (screenWidth - gameover.width) / 2, (screenHeight - gameover.height) / 2, WHITE);
             }
-            else
+
+            if(victoria)
             {
                 DrawTexture(win, (screenWidth - win.width) / 2, (screenHeight - win.height) / 2, WHITE);
             }
