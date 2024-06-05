@@ -244,6 +244,8 @@ int main(void)
 
     bool archivo_guardado = false;
 
+    bool victoria_general = false;
+
     int ganancias_temp = 0;
 
 
@@ -350,8 +352,6 @@ int main(void)
                 StopSound(endgameSound);
             }
 
-
-            // Detectar el estado del mouse en los botones
             if (CheckCollisionPointRec(GetMousePosition(), creditosButtonBounds))
             {
                 creditsButtonHovered = true;
@@ -549,6 +549,7 @@ int main(void)
                             juego_actual_subido = true;
                         }
 
+                        victoria_general = true;
                         currentScreen = ENDING;
                     }
 
@@ -2207,7 +2208,7 @@ int main(void)
                 DrawTexture(gameover, (screenWidth - gameover.width) / 2, (screenHeight - gameover.height) / 2, WHITE);
             }
 
-            if(victoria)
+            if(victoria_general)
             {
                 DrawTexture(win, (screenWidth - win.width) / 2, (screenHeight - win.height) / 2, WHITE);
             }
