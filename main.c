@@ -23,6 +23,7 @@ typedef struct {
     char opcionC[50];
     char opcionD[50];
     char respuestaCorrecta;
+    int ganancias;
 } Pregunta;
 
 typedef enum GameScreen
@@ -77,6 +78,7 @@ void loadFile(Usuario usuarios[], int *numUsuarios)
 
     fclose(archivo_leer);
 }
+
 
 int main(void)
 {
@@ -207,22 +209,22 @@ int main(void)
     Rectangle comodinButtonBounds = {screenWidth / 2.0f - 80, screenHeight / 2.0f - 100, 144, 50};
 
     Pregunta preguntas[16] = {
-        {"¿Cuál es la capital de Francia?", "A) Berlín", "B) Madrid", "C) París", "D) Roma", 'C'},
-        {"¿Cuál es el océano más grande del mundo?", "A) Atlántico", "B) Índico", "C) Ártico", "D) Pacífico", 'D'},
-        {"¿Quién pintó la Mona Lisa?", "A) Vincent van Gogh", "B) Pablo Picasso", "C) Leonardo da Vinci", "D) Rembrandt", 'C'},
-        {"¿Cuál es el metal más ligero?", "A) Oro", "B) Plomo", "C) Litio", "D) Mercurio", 'C'},
-        {"¿Cuál es el planeta más cercano al Sol?", "A) Venus", "B) Tierra", "C) Marte", "D) Mercurio", 'D'},
-        {"¿Cuál es el país más grande \ndel mundo por área?", "A) Canadá", "B) China", "C) Rusia", "D) Estados Unidos", 'C'},
-        {"¿Cuál es el río más largo del mundo?", "A) Amazonas", "B) Nilo", "C) Yangtsé", "D) Misisipi", 'B'},
-        {"¿Cuál es el órgano más grande del\n cuerpo humano?", "A) Hígado", "B) Cerebro", "C) Piel", "D) Corazón", 'C'},
-        {"¿Cuál es la moneda oficial de Japón?", "A) Yen", "B) Won", "C) Yuan", "D) Dólar", 'A'},
-        {"¿Cuál es el idioma más hablado en el mundo?", "A) Inglés", "B) Mandarín", "C) Español", "D) Hindi", 'B'},
-        {"¿Cuál es la ciudad más poblada del mundo?", "A) Tokio", "B) Nueva York", "C) São Paulo", "D) Mumbai", 'A'},
-        {"¿En qué país se encuentra la Torre Eiffel?", "A) España", "B) Italia", "C) Francia", "D) Alemania", 'C'},
-        {"¿Cuál es el desierto más grande del mundo?", "A) Sahara", "B) Gobi", "C) Kalahari", "D) Antártida", 'D'},
-        {"¿Cuál es la capital de Australia?", "A) Sídney", "B) Melbourne", "C) Canberra", "D) Brisbane", 'C'},
-        {"¿En qué año comenzó la \nPrimera Guerra Mundial?", "A) 1905", "B) 1914", "C) 1921", "D) 1939", 'B'},
-        {"¿Cuál es la capital de Finlandia?", "A) Oslo", "B) Estocolmo", "C) Helsinki", "D) Copenhague", 'C'}
+        {"¿Cuál es la capital de Francia?", "A) Berlín", "B) Madrid", "C) París", "D) Roma", 'C', 100},
+        {"¿Cuál es el océano más grande del mundo?", "A) Atlántico", "B) Índico", "C) Ártico", "D) Pacífico", 'D', 200},
+        {"¿Quién pintó la Mona Lisa?", "A) Vincent van Gogh", "B) Pablo Picasso", "C) Leonardo da Vinci", "D) Rembrandt", 'C', 300},
+        {"¿Cuál es el metal más ligero?", "A) Oro", "B) Plomo", "C) Litio", "D) Mercurio", 'C', 400},
+        {"¿Cuál es el planeta más cercano al Sol?", "A) Venus", "B) Tierra", "C) Marte", "D) Mercurio", 'D', 500},
+        {"¿Cuál es el país más grande \ndel mundo por área?", "A) Canadá", "B) China", "C) Rusia", "D) Estados Unidos", 'C', 1000},
+        {"¿Cuál es el río más largo del mundo?", "A) Amazonas", "B) Nilo", "C) Yangtsé", "D) Misisipi", 'B', 2000},
+        {"¿Cuál es el órgano más grande del\n cuerpo humano?", "A) Hígado", "B) Cerebro", "C) Piel", "D) Corazón", 'C', 4000},
+        {"¿Cuál es la moneda oficial de Japón?", "A) Yen", "B) Won", "C) Yuan", "D) Dólar", 'A', 8000},
+        {"¿Cuál es el idioma más hablado en el mundo?", "A) Inglés", "B) Mandarín", "C) Español", "D) Hindi", 'B', 16000},
+        {"¿Cuál es la ciudad más poblada del mundo?", "A) Tokio", "B) Nueva York", "C) São Paulo", "D) Mumbai", 'A', 32000},
+        {"¿En qué país se encuentra la Torre Eiffel?", "A) España", "B) Italia", "C) Francia", "D) Alemania", 'C', 64000},
+        {"¿Cuál es el desierto más grande del mundo?", "A) Sahara", "B) Gobi", "C) Kalahari", "D) Antártida", 'D', 125000},
+        {"¿Cuál es la capital de Australia?", "A) Sídney", "B) Melbourne", "C) Canberra", "D) Brisbane", 'C', 250000},
+        {"¿En qué año comenzó la \nPrimera Guerra Mundial?", "A) 1905", "B) 1914", "C) 1921", "D) 1939", 'B', 500000},
+        {"¿Cuál es la capital de Finlandia?", "A) Oslo", "B) Estocolmo", "C) Helsinki", "D) Copenhague", 'C', 1000000}
     };
 
     int comodin_opc_int; //a=0 b=1 c=2 d=3 respuesta correcta de la pregunta actual
@@ -243,26 +245,6 @@ int main(void)
     bool archivo_guardado = false;
 
     int ganancias_temp = 0;
-
-    int vect_ganancias[16] =
-    {
-        100,
-        200,
-        300,
-        400,
-        500,
-        1000,
-        2000,
-        4000,
-        8000,
-        16000,
-        32000,
-        64000,
-        125000,
-        250000,
-        500000,
-        1000000
-    };
 
 
     //VARIABLES CREDITS
@@ -548,24 +530,28 @@ int main(void)
                     victoria = 1;
                     PlaySound(correctaSound);
 
-                    pregunta_actual++;
                     comodin_clicked = false;
                     respondido = 0;
 
-                    if(!juego_actual_subido)
-                    {
-                        ganancias_temp = vect_ganancias[pregunta_actual-2];
-                        usuarios[numUsuarios].ganancias = ganancias_temp;
-                        strcpy(usuarios[numUsuarios].usuario, name);
-                        usuarios[numUsuarios].id = numUsuarios + 1;
-                        numUsuarios++;
-                        juego_actual_subido = true;
-                    }
+                    pregunta_actual++;
+                    victoria = 0;
+                    derrota = 0;
 
                     if(pregunta_actual > 16)
                     {
+
+                        if(!juego_actual_subido)
+                        {
+                            usuarios[numUsuarios].ganancias = preguntas[pregunta_actual-2].ganancias;
+                            strcpy(usuarios[numUsuarios].usuario, name);
+                            usuarios[numUsuarios].id = numUsuarios + 1;
+                            numUsuarios++;
+                            juego_actual_subido = true;
+                        }
+
                         currentScreen = ENDING;
                     }
+
                 }
                 else
                 {
@@ -579,8 +565,7 @@ int main(void)
                     {
                         if(pregunta_actual > 1)
                         {
-                            ganancias_temp = vect_ganancias[pregunta_actual-2];
-                            usuarios[numUsuarios].ganancias = ganancias_temp;
+                            usuarios[numUsuarios].ganancias = preguntas[pregunta_actual-2].ganancias;
                             strcpy(usuarios[numUsuarios].usuario, name);
                             usuarios[numUsuarios].id = numUsuarios + 1;
                             numUsuarios++;
@@ -650,7 +635,6 @@ int main(void)
         break;
         case POINTS:
         {
-
             StopSound(loopSound);
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
@@ -679,11 +663,10 @@ int main(void)
             {
                 if(pregunta_actual != 1)
                 {
-                    ganancias_temp = vect_ganancias[pregunta_actual-2];
                     FILE* archivo_escribir = fopen("reg.txt", "a");
                     if (archivo_escribir != NULL)
                     {
-                        fprintf(archivo_escribir, "%s %d\n", name, ganancias_temp);
+                        fprintf(archivo_escribir, "%s %d\n", name, preguntas[pregunta_actual-2].ganancias);
                         fclose(archivo_escribir);
                     }
                 }
@@ -2170,10 +2153,10 @@ int main(void)
             {
                 for (int i = start; i < numUsuarios; ++i)
                 {
-                    DrawText(usuarios[i].usuario, x1, y, 14, WHITE);  // Muestra el nombre del usuario en x1
-                    char gananciasStr[10];  // Asume que los puntos no superarán los 9 dígitos
+                    DrawText(usuarios[i].usuario, x1, y, 14, WHITE); 
+                    char gananciasStr[10]; 
                     sprintf(gananciasStr, "%d", usuarios[i].ganancias);
-                    DrawText(gananciasStr, x2, y, 14, WHITE);   // Muestra los puntos del usuario en x2
+                    DrawText(gananciasStr, x2, y, 14, WHITE); 
                     y += 15;
                 }
 
